@@ -1,0 +1,87 @@
+security:
+    enable_authenticator_manager: true
+    encoders:
+        App\Entity\User:
+            algorithm: auto
+
+    role_hierarchy:
+        ROLE_AGENT_LIVE_CHAT: ROLE_USER
+        ROLE_AGENT_LEAD_CITY: ROLE_USER
+        ROLE_AGENT_LEAD: ROLE_AGENT_LEAD_CITY
+        ROLE_AGENT: [ROLE_AGENT_LEAD, ROLE_AGENT_LIVE_CHAT]
+        ROLE_CLIENT: ROLE_AGENT
+        ROLE_ADMIN: ROLE_CLIENT
+        ROLE_SUPER_ADMIN: ROLE_ADMIN
+
+    # https://symfony.com/doc/current/security.html#where-do-users-come-from-user-providers
+    providers:
+        # used to reload user from session & other features (e.g. switch_user)
+        app_user_provider:
+            entity:
+                class: App\Entity\User
+                property: email
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+        api_public_routes:
+            pattern: ^/(docs|docs.jsonld|contexts/Entrypoint)
+            stateless: true
+        login:
+            pattern: ^/login
+            stateless: true
+            json_login:
+                check_path: /login_check
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+
+        main:
+            pattern:   ^/
+            stateless: true
+            provider: app_user_provider
+            jwt: ~
+            entry_point: jwt
+            custom_authenticators:
+                - App\Security\TokenAuthenticator
+
+        # main:
+        #     stateless: true
+        #     anonymous: true
+        #     provider: app_user_provider
+        #     json_login:
+        #         check_path: /login_check
+        #         username_path: email
+        #         password_path: password
+        #         success_handler: lexik_jwt_authentication.handler.authentication_success
+        #         failure_handler: lexik_jwt_authentication.handler.authentication_failure
+        #     guard:
+        #         authenticators:
+        #             - lexik_jwt_authentication.jwt_token_authenticator
+
+    # Easy way to control access for large sections of your site
+    # Note: Only the *first* access control that matches will be used
+    access_control:
+        # Public endpoints
+        - { path: ^/login_check, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        - { path: ^/newconversations, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        - { path: ^/total_conversations, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        - { path: ^/contexts, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        - { path: ^/docs.jsonld, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        - { path: ^/docs, roles: IS_AUTHENTICATED_ANONYMOUSLY, ips: [ 127.0.0.1, ::1, 192.168.0.1/24 ] }
+        - { path: ^/docs, roles: ROLE_NO_ACCESS }
+        - { path: ^/leads, roles: IS_AUTHENTICATED_ANONYMOUSLY, methods: [POST] }
+        - { path: ^/email_confirmations, roles: IS_AUTHENTICATED_ANONYMOUSLY, methods: [GET] }
+        - { path: ^/password_resets, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        # Only Client and Team Members (Agents)
+        - { path: ^/conversations, roles: ROLE_AGENT }
+        - { path: ^/insights, roles: ROLE_USER }
+        - { path: ^/stats, roles: ROLE_USER }
+        - { path: ^/leads, roles: ROLE_AGENT_LEAD_CITY }
+        - { path: ^/lead_custom_fields, roles: ROLE_AGENT_LEAD_CITY }
+        - { path: ^/support_tickets, roles: ROLE_USER, methods: [POST] }
+        # Admins only
+        - { path: ^/live_chats, roles: ROLE_ADMIN }
+        - { path: ^/users, roles: ROLE_ADMIN }
+        - { path: ^/sub_accounts, roles: ROLE_ADMIN }
+        - { path: ^/support_tickets, roles: ROLE_ADMIN }
+        - { path: ^/, roles: IS_AUTHENTICATED_FULLY }
